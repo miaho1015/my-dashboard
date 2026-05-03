@@ -484,13 +484,40 @@ header {
 </div>
 
 <script>
+const DB = 'https://mia-dashboard-f4d8f-default-rtdb.asia-southeast1.firebasedatabase.app';
 const today = new Date();
 const todayStr = today.toISOString().slice(0,10);
 const DAY_NAMES = ['日','一','二','三','四','五','六'];
-const MOOD_COLORS = { 1:'#ef4444', 2:'#f97316', 3:'#eab308', 4:'#84cc16', 5:'#22c55e' };
+const MOOD_COLORS = {1:'#ef4444',2:'#f97316',3:'#eab308',4:'#84cc16',5:'#22c55e'};
 
 document.getElementById('headerDate').textContent =
   today.toLocaleDateString('zh-TW',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+
+// ===== Firebase helpers =====
+async function fbGet(path){
+  try{
+    const r=await fetch(`${DB}/${path}.json`);
+    return r.ok ? await r.json() : null;
+  }catch{return null;}
+}
+async function fbSet(path,data){
+  try{
+    await fetch(`${DB}/${path}.json`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(data)
+    });
+  }catch(e){console.error('fbSet',e);}
+}
+async function fbPatch(path,data){
+  try{
+    await fetch(`${DB}/${path}.json`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(data)
+    });
+  }catch(e){console.error('fbPatch',e);}
+}
 
 // ===== GOALS =====
 const GOALS = {
@@ -523,12 +550,12 @@ const GOALS = {
   ]
 };
 
-const goalsDone = JSON.parse(localStorage.getItem('mia_dash_goals')||'{}');
+let goalsDone = {};
 
-function renderGoals() {
-  ['3m','1y','5y'].forEach(key => {
-    document.getElementById(`goals-${key}`).innerHTML = GOALS[key].map((g,i) => {
-      const id=`${key}-${i}`, done=goalsDone[id];
+function renderGoals(){
+  ['3m','1y','5y'].forEach(key=>{
+    document.getElementById(`goals-${key}`).innerHTML=GOALS[key].map((g,i)=>{
+      const id=`${key}-${i}`,done=goalsDone[id];
       return `<div class="goal-item ${done?'done':''}" onclick="toggleGoal('${id}',this)">
         <div class="goal-check"></div>
         <span class="goal-tag">${g.tag}</span>
@@ -538,21 +565,17 @@ function renderGoals() {
   });
 }
 
-function toggleGoal(id,el) {
+async function toggleGoal(id,el){
   goalsDone[id]=!goalsDone[id];
-  localStorage.setItem('mia_dash_goals',JSON.stringify(goalsDone));
   el.classList.toggle('done',goalsDone[id]);
+  await fbSet('goals',goalsDone);
 }
-
-renderGoals();
 
 // ===== HABITS =====
-function getHabits() {
-  return JSON.parse(localStorage.getItem('mia_dash_habits')||JSON.stringify([
-    {name:'服藥',data:{}},{name:'喝水',data:{}},{name:'閱讀',data:{}},{name:'',data:{}},{name:'',data:{}}
-  ]));
-}
-function saveHabits(h){ localStorage.setItem('mia_dash_habits',JSON.stringify(h)); }
+const DEFAULT_HABITS=[
+  {name:'服藥',data:{}},{name:'喝水',data:{}},{name:'閱讀',data:{}},{name:'',data:{}},{name:'',data:{}}
+];
+let habitsData=JSON.parse(JSON.stringify(DEFAULT_HABITS));
 
 function getLast7(){
   return Array.from({length:7},(_,i)=>{
@@ -568,28 +591,30 @@ function calcStreak(data){
 }
 
 function renderHabits(){
-  const habits=getHabits(), days=getLast7();
+  const days=getLast7();
   document.getElementById('weekLabels').innerHTML=
     days.map(d=>`<div class="week-label">${DAY_NAMES[new Date(d+'T00:00:00').getDay()]}</div>`).join('');
-  document.getElementById('habitList').innerHTML=habits.map((h,hi)=>`
+  document.getElementById('habitList').innerHTML=habitsData.map((h,hi)=>`
     <div class="habit-row">
       <button class="habit-edit-btn" onclick="startEditHabit(${hi})">✎</button>
       <span class="habit-name" id="hname-${hi}">${h.name||'<span style="color:var(--text-muted);font-size:12px">點 ✎ 設定</span>'}</span>
       <input class="habit-edit-input" id="hinput-${hi}" value="${h.name}"
         onblur="saveHabitName(${hi})" onkeydown="if(event.key==='Enter')saveHabitName(${hi})">
       <div class="habit-dots">
-        ${days.map(d=>`<div class="habit-dot${d===todayStr?' today':''}${h.data[d]?' done':''}"
+        ${days.map(d=>`<div class="habit-dot${d===todayStr?' today':''}${h.data&&h.data[d]?' done':''}"
           onclick="toggleHabit(${hi},'${d}',this)"></div>`).join('')}
       </div>
-      <div class="habit-streak">${calcStreak(h.data)}🔥</div>
+      <div class="habit-streak">${calcStreak(h.data||{})}🔥</div>
     </div>
   `).join('');
 }
 
-function toggleHabit(hi,date,el){
-  const h=getHabits(); h[hi].data[date]=!h[hi].data[date]; saveHabits(h);
-  el.classList.toggle('done',h[hi].data[date]);
-  el.closest('.habit-row').querySelector('.habit-streak').textContent=calcStreak(h[hi].data)+'🔥';
+async function toggleHabit(hi,date,el){
+  if(!habitsData[hi].data) habitsData[hi].data={};
+  habitsData[hi].data[date]=!habitsData[hi].data[date];
+  el.classList.toggle('done',habitsData[hi].data[date]);
+  el.closest('.habit-row').querySelector('.habit-streak').textContent=calcStreak(habitsData[hi].data)+'🔥';
+  await fbSet('habits',habitsData);
 }
 
 function startEditHabit(hi){
@@ -598,44 +623,23 @@ function startEditHabit(hi){
   inp.classList.add('editing'); inp.focus(); inp.select();
 }
 
-function saveHabitName(hi){
-  const h=getHabits(); h[hi].name=document.getElementById(`hinput-${hi}`).value.trim();
-  saveHabits(h);
+async function saveHabitName(hi){
+  habitsData[hi].name=document.getElementById(`hinput-${hi}`).value.trim();
+  await fbSet('habits',habitsData);
   document.getElementById(`hinput-${hi}`).classList.remove('editing');
   renderHabits();
 }
 
-renderHabits();
-
 // ===== MOOD =====
-function getMoodData(){ return JSON.parse(localStorage.getItem('mia_dash_mood')||'{}'); }
-
-function setMood(v){
-  const data=getMoodData(); const entry=data[todayStr]||{};
-  entry.score=v; data[todayStr]=entry;
-  localStorage.setItem('mia_dash_mood',JSON.stringify(data));
-  document.querySelectorAll('.mood-btn').forEach(b=>b.classList.toggle('active',+b.dataset.v===v));
-  document.getElementById('moodSavedLabel').textContent='已記錄 ✓';
-  renderMoodBars();
-}
-
-function toggleMoodTag(btn){
-  const data=getMoodData(); const entry=data[todayStr]||{};
-  const tags=entry.tags||[]; const tag=btn.textContent;
-  const idx=tags.indexOf(tag); idx>-1?tags.splice(idx,1):tags.push(tag);
-  entry.tags=tags; data[todayStr]=entry;
-  localStorage.setItem('mia_dash_mood',JSON.stringify(data));
-  btn.classList.toggle('active',idx===-1);
-}
+let moodData={};
 
 function renderMoodBars(){
-  const data=getMoodData();
   const days=Array.from({length:14},(_,i)=>{
     const d=new Date(today); d.setDate(d.getDate()-(13-i));
     return d.toISOString().slice(0,10);
   });
   document.getElementById('moodBars').innerHTML=days.map(d=>{
-    const score=data[d]?.score||0;
+    const score=moodData[d]?.score||0;
     const pct=score?(score/5*100):0;
     const color=score?MOOD_COLORS[score]:'#e8ddd0';
     return `<div class="mood-bar-wrap">
@@ -643,46 +647,61 @@ function renderMoodBars(){
       <div class="mood-bar-label">${DAY_NAMES[new Date(d+'T00:00:00').getDay()]}</div>
     </div>`;
   }).join('');
-  const te=data[todayStr];
+  const te=moodData[todayStr];
   if(te?.score) document.querySelectorAll('.mood-btn').forEach(b=>b.classList.toggle('active',+b.dataset.v===te.score));
   if(te?.score) document.getElementById('moodSavedLabel').textContent='已記錄 ✓';
   if(te?.tags) document.querySelectorAll('.mood-tag').forEach(t=>t.classList.toggle('active',te.tags.includes(t.textContent)));
 }
 
-renderMoodBars();
+async function setMood(v){
+  const entry=moodData[todayStr]||{};
+  entry.score=v; moodData[todayStr]=entry;
+  document.querySelectorAll('.mood-btn').forEach(b=>b.classList.toggle('active',+b.dataset.v===v));
+  document.getElementById('moodSavedLabel').textContent='已記錄 ✓';
+  renderMoodBars();
+  await fbPatch('mood',{[todayStr]:entry});
+}
+
+async function toggleMoodTag(btn){
+  const entry=moodData[todayStr]||{};
+  const tags=entry.tags||[]; const tag=btn.textContent;
+  const idx=tags.indexOf(tag); idx>-1?tags.splice(idx,1):tags.push(tag);
+  entry.tags=tags; moodData[todayStr]=entry;
+  btn.classList.toggle('active',idx===-1);
+  await fbPatch('mood',{[todayStr]:entry});
+}
 
 // ===== LEARNING =====
-function loadLearn(){
-  const d=JSON.parse(localStorage.getItem('mia_dash_learn')||'{}');
+let learnData={};
+
+function renderLearn(){
   ['reading','done-books','courses','done-courses'].forEach(k=>{
-    document.getElementById(`l-${k}`).value=d[k]||0;
+    document.getElementById(`l-${k}`).value=learnData[k]||0;
   });
 }
 
-function saveLearn(){
-  const d={};
-  ['reading','done-books','courses','done-courses'].forEach(k=>{ d[k]=+document.getElementById(`l-${k}`).value||0; });
-  localStorage.setItem('mia_dash_learn',JSON.stringify(d));
+async function saveLearn(){
+  ['reading','done-books','courses','done-courses'].forEach(k=>{
+    learnData[k]=+document.getElementById(`l-${k}`).value||0;
+  });
+  await fbSet('learn',learnData);
 }
 
-loadLearn();
-
 // ===== SLEEP =====
-function getSleepData(){ return JSON.parse(localStorage.getItem('mia_dash_sleep')||'{}'); }
+let sleepData={};
 
 function calcSleep(){
   const bed=document.getElementById('s-bed').value;
   const wake=document.getElementById('s-wake').value;
-  if(!bed||!wake){ document.getElementById('s-total').textContent='—'; return; }
+  if(!bed||!wake){document.getElementById('s-total').textContent='—';return;}
   let [bh,bm]=bed.split(':').map(Number);
   let [wh,wm]=wake.split(':').map(Number);
   let mins=(wh*60+wm)-(bh*60+bm);
   if(mins<0) mins+=24*60;
-  const h=(mins/60).toFixed(1);
-  document.getElementById('s-total').textContent=h;
+  document.getElementById('s-total').textContent=(mins/60).toFixed(1);
 }
 
-function saveSleep(){
+async function saveSleep(){
   const bed=document.getElementById('s-bed').value;
   const wake=document.getElementById('s-wake').value;
   if(!bed||!wake) return;
@@ -691,66 +710,40 @@ function saveSleep(){
   let mins=(wh*60+wm)-(bh*60+bm);
   if(mins<0) mins+=24*60;
   const hours=+(mins/60).toFixed(1);
-  const data=getSleepData();
-  data[todayStr]={bed,wake,hours};
-  localStorage.setItem('mia_dash_sleep',JSON.stringify(data));
+  sleepData[todayStr]={bed,wake,hours};
   document.getElementById('sleepSavedLabel').textContent='已記錄 ✓';
   renderSleepBars();
+  await fbPatch('sleep',{[todayStr]:{bed,wake,hours}});
 }
 
 function renderSleepBars(){
-  const data=getSleepData();
   const days=Array.from({length:7},(_,i)=>{
     const d=new Date(today); d.setDate(d.getDate()-(6-i));
     return d.toISOString().slice(0,10);
   });
   const maxH=10;
   document.getElementById('sleepBars').innerHTML=days.map(d=>{
-    const entry=data[d];
-    const h=entry?.hours||0;
+    const h=sleepData[d]?.hours||0;
     const pct=Math.min(h/maxH*100,100);
     return `<div class="sleep-bar-wrap">
       <div class="sleep-bar${d===todayStr?' today':''}" style="height:${pct||3}%;opacity:${h?1:0.2}" title="${h?h+'小時':'無紀錄'}"></div>
       <div class="sleep-bar-label">${DAY_NAMES[new Date(d+'T00:00:00').getDay()]}</div>
     </div>`;
   }).join('');
-  // 載入今日
-  const todayEntry=data[todayStr];
-  if(todayEntry){
-    document.getElementById('s-bed').value=todayEntry.bed;
-    document.getElementById('s-wake').value=todayEntry.wake;
-    document.getElementById('s-total').textContent=todayEntry.hours;
+  const te=sleepData[todayStr];
+  if(te){
+    document.getElementById('s-bed').value=te.bed;
+    document.getElementById('s-wake').value=te.wake;
+    document.getElementById('s-total').textContent=te.hours;
     document.getElementById('sleepSavedLabel').textContent='已記錄 ✓';
   }
 }
 
-renderSleepBars();
-
 // ===== GRATITUDE =====
-function getGratitude(){ return JSON.parse(localStorage.getItem('mia_dash_gratitude')||'{}'); }
-
-function addGratitude(){
-  const inp=document.getElementById('gratitude-input');
-  const text=inp.value.trim();
-  if(!text) return;
-  const data=getGratitude();
-  if(!data[todayStr]) data[todayStr]=[];
-  data[todayStr].push({id:Date.now(),text});
-  localStorage.setItem('mia_dash_gratitude',JSON.stringify(data));
-  inp.value='';
-  renderGratitude();
-}
-
-function deleteGratitude(id){
-  const data=getGratitude();
-  data[todayStr]=(data[todayStr]||[]).filter(e=>e.id!==id);
-  localStorage.setItem('mia_dash_gratitude',JSON.stringify(data));
-  renderGratitude();
-}
+let gratitudeData={};
 
 function renderGratitude(){
-  const data=getGratitude();
-  const items=data[todayStr]||[];
+  const items=gratitudeData[todayStr]||[];
   document.getElementById('gratitudeDateLabel').textContent=
     today.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'});
   document.getElementById('gratitudeList').innerHTML=items.length
@@ -762,16 +755,29 @@ function renderGratitude(){
     :'<div class="gratitude-empty">今天還沒有記錄，寫下一件讓你感謝的事吧 🌸</div>';
 }
 
-renderGratitude();
+async function addGratitude(){
+  const inp=document.getElementById('gratitude-input');
+  const text=inp.value.trim();
+  if(!text) return;
+  if(!gratitudeData[todayStr]) gratitudeData[todayStr]=[];
+  gratitudeData[todayStr].push({id:Date.now(),text});
+  inp.value='';
+  renderGratitude();
+  await fbSet(`gratitude/${todayStr}`,gratitudeData[todayStr]);
+}
+
+async function deleteGratitude(id){
+  gratitudeData[todayStr]=(gratitudeData[todayStr]||[]).filter(e=>e.id!==id);
+  renderGratitude();
+  await fbSet(`gratitude/${todayStr}`,gratitudeData[todayStr]);
+}
 
 // ===== FINANCE =====
 const CAT_LABEL={income:'收入',food:'飲食',transport:'交通',bill:'帳單',health:'醫療',debt:'還款',other:'其他'};
 const CAT_CLASS={income:'cat-income',food:'cat-food',transport:'cat-transport',bill:'cat-bill',health:'cat-health',debt:'cat-debt',other:'cat-other'};
 const CAT_ICON={income:'💰',food:'🍱',transport:'🚌',bill:'📋',health:'💊',debt:'🔴',other:'・'};
 let currentMonth=todayStr.slice(0,7);
-
-function getFinance(){ return JSON.parse(localStorage.getItem('mia_dash_finance')||'{}'); }
-function saveFinance(d){ localStorage.setItem('mia_dash_finance',JSON.stringify(d)); }
+let financeData={};
 
 function changeMonth(dir){
   const [y,m]=currentMonth.split('-').map(Number);
@@ -780,33 +786,32 @@ function changeMonth(dir){
   renderFinance();
 }
 
-function addEntry(){
+async function addEntry(){
   const cat=document.getElementById('f-cat').value;
   const desc=document.getElementById('f-desc').value.trim();
   const amount=+document.getElementById('f-amount').value;
   if(!desc||!amount) return;
-  const fin=getFinance();
-  if(!fin[currentMonth]) fin[currentMonth]=[];
-  fin[currentMonth].push({id:Date.now(),cat,desc,amount});
-  saveFinance(fin);
+  if(!financeData[currentMonth]) financeData[currentMonth]=[];
+  financeData[currentMonth].push({id:Date.now(),cat,desc,amount});
   document.getElementById('f-desc').value='';
   document.getElementById('f-amount').value='';
   renderFinance();
+  await fbSet('finance',financeData);
 }
 
-function deleteEntry(id){
-  const fin=getFinance();
-  fin[currentMonth]=(fin[currentMonth]||[]).filter(e=>e.id!==id);
-  saveFinance(fin); renderFinance();
+async function deleteEntry(id){
+  financeData[currentMonth]=(financeData[currentMonth]||[]).filter(e=>e.id!==id);
+  renderFinance();
+  await fbSet('finance',financeData);
 }
 
 function renderFinance(){
   const [y,m]=currentMonth.split('-').map(Number);
   document.getElementById('monthLabel').textContent=
     new Date(y,m-1,1).toLocaleDateString('zh-TW',{year:'numeric',month:'long'});
-  const fin=getFinance(), entries=fin[currentMonth]||[];
+  const entries=financeData[currentMonth]||[];
   let income=0,expense=0;
-  entries.forEach(e=>{ e.cat==='income'?income+=e.amount:expense+=e.amount; });
+  entries.forEach(e=>{e.cat==='income'?income+=e.amount:expense+=e.amount;});
   document.getElementById('f-income').textContent='$'+income.toLocaleString();
   document.getElementById('f-expense').textContent='$'+expense.toLocaleString();
   const remain=income-expense;
@@ -823,7 +828,35 @@ function renderFinance(){
     :'<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px">本月尚無紀錄</div>';
 }
 
-renderFinance();
+// ===== INIT =====
+async function initDashboard(){
+  const [goals,habits,mood,learn,sleep,gratitude,finance]=await Promise.all([
+    fbGet('goals'),
+    fbGet('habits'),
+    fbGet('mood'),
+    fbGet('learn'),
+    fbGet('sleep'),
+    fbGet('gratitude'),
+    fbGet('finance'),
+  ]);
+  goalsDone  = goals    || {};
+  habitsData = habits   || JSON.parse(JSON.stringify(DEFAULT_HABITS));
+  moodData   = mood     || {};
+  learnData  = learn    || {};
+  sleepData  = sleep    || {};
+  gratitudeData = gratitude || {};
+  financeData   = finance   || {};
+
+  renderGoals();
+  renderHabits();
+  renderMoodBars();
+  renderLearn();
+  renderSleepBars();
+  renderGratitude();
+  renderFinance();
+}
+
+initDashboard();
 </script>
 </body>
 </html>
