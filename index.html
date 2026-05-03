@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mia's Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #faf7f2;
+  --bg2:       #f4ede0;
+  --bg3:       #ede0cc;
+  --card:      #ffffff;
+  --accent:    #b07d3a;
+  --accent2:   #d4a054;
+  --accent-dim: rgba(176,125,58,0.1);
+  --text:      #2d2418;
+  --text-sub:  #7a6040;
+  --text-muted:#b09070;
+  --border:    rgba(176,125,58,0.15);
+  --shadow:    0 2px 16px rgba(100,60,0,0.07);
+  --radius:    14px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', 'Noto Sans TC', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: var(--shadow);
+}
+
+.header-left h1 { font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: -0.3px; }
+.header-left p { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.header-date { font-size: 13px; color: var(--text-sub); font-weight: 500; }
+
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 22px 24px;
+}
+
+.card.full { grid-column: 1 / -1; }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.card-title span { font-size: 16px; }
+
+/* GOALS */
+.goal-section { margin-bottom: 16px; }
+.goal-period {
+  font-size: 11px; font-weight: 600; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+.goal-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 6px 0; border-bottom: 1px solid rgba(176,125,58,0.06); cursor: pointer;
+}
+.goal-item:last-child { border-bottom: none; }
+.goal-check {
+  width: 16px; height: 16px; border: 1.5px solid var(--accent2); border-radius: 4px;
+  flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.goal-item.done .goal-check { background: var(--accent); border-color: var(--accent); }
+.goal-item.done .goal-check::after { content: '✓'; color: white; font-size: 10px; font-weight: 700; }
+.goal-item.done .goal-text { color: var(--text-muted); text-decoration: line-through; }
+.goal-tag {
+  font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 100px;
+  background: var(--accent-dim); color: var(--accent); flex-shrink: 0; margin-top: 2px;
+}
+.goal-text { font-size: 13px; color: var(--text); line-height: 1.4; flex: 1; }
+
+/* HABITS */
+.habit-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid rgba(176,125,58,0.06);
+}
+.habit-row:last-child { border-bottom: none; }
+.habit-name { flex: 1; font-size: 14px; color: var(--text); }
+.habit-edit-input {
+  flex: 1; border: none; border-bottom: 1.5px solid var(--accent2);
+  background: transparent; font-family: inherit; font-size: 14px; color: var(--text);
+  outline: none; display: none; padding: 2px 0;
+}
+.habit-edit-input.editing { display: block; }
+.habit-name.hidden { display: none; }
+.habit-streak { font-size: 11px; color: var(--text-muted); min-width: 40px; text-align: right; }
+.habit-dots { display: flex; gap: 4px; }
+.habit-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 1.5px solid var(--bg3); background: var(--bg2);
+  cursor: pointer; transition: all 0.15s;
+}
+.habit-dot.today { border-color: var(--accent2); }
+.habit-dot.done { background: var(--accent); border-color: var(--accent); }
+.habit-dot.today.done { box-shadow: 0 0 0 3px rgba(176,125,58,0.2); }
+.habit-edit-btn {
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: 13px; padding: 2px 4px; opacity: 0.4; transition: opacity 0.2s;
+}
+.habit-row:hover .habit-edit-btn { opacity: 1; }
+.week-labels { display: flex; gap: 4px; justify-content: flex-end; margin-bottom: 6px; }
+.week-label { width: 10px; text-align: center; font-size: 9px; color: var(--text-muted); }
+
+/* MOOD */
+.mood-today { display: flex; gap: 8px; margin-bottom: 16px; }
+.mood-btn {
+  flex: 1; padding: 10px 0; border: 2px solid var(--border); border-radius: 10px;
+  background: transparent; font-size: 18px; cursor: pointer; transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; font-family: inherit;
+}
+.mood-btn .label { font-size: 10px; color: var(--text-muted); }
+.mood-btn:hover { border-color: var(--accent2); transform: translateY(-2px); }
+.mood-btn.active { border-color: var(--accent); background: var(--accent-dim); }
+.mood-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.mood-tag {
+  padding: 4px 12px; border-radius: 100px; border: 1px solid var(--border);
+  background: transparent; font-size: 12px; color: var(--text-sub); cursor: pointer;
+  font-family: inherit; transition: all 0.2s;
+}
+.mood-tag.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.mood-bars { display: flex; align-items: flex-end; gap: 3px; height: 60px; }
+.mood-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
+.mood-bar { width: 100%; border-radius: 3px 3px 0 0; min-height: 3px; transition: height 0.3s; }
+.mood-bar-label { font-size: 8px; color: var(--text-muted); }
+
+/* LEARNING */
+.learn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.learn-stat {
+  background: var(--bg); border-radius: 10px; padding: 14px 16px;
+  border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;
+}
+.learn-stat-num { font-size: 28px; font-weight: 700; color: var(--accent); line-height: 1; }
+.learn-stat-label { font-size: 11px; color: var(--text-muted); }
+.learn-stat input {
+  width: 60px; border: none; border-bottom: 1px solid var(--border); background: transparent;
+  font-family: inherit; font-size: 28px; font-weight: 700; color: var(--accent);
+  outline: none; line-height: 1; padding: 0;
+}
+.learn-links { display: flex; gap: 10px; }
+.learn-link {
+  flex: 1; padding: 9px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg); text-align: center; font-size: 12px; color: var(--accent);
+  text-decoration: none; font-weight: 500; transition: all 0.2s;
+}
+.learn-link:hover { background: var(--accent-dim); }
+
+/* SLEEP */
+.sleep-inputs { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; }
+.sleep-field { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.sleep-field label { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+.sleep-field input[type="time"] {
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); font-family: inherit; font-size: 14px; color: var(--text);
+  outline: none; width: 100%; transition: border-color 0.2s;
+}
+.sleep-field input[type="time"]:focus { border-color: var(--accent2); }
+.sleep-hours {
+  background: var(--accent-dim); border-radius: 10px; padding: 10px 14px;
+  text-align: center; flex-shrink: 0; min-width: 72px;
+}
+.sleep-hours-num { font-size: 24px; font-weight: 700; color: var(--accent); line-height: 1; }
+.sleep-hours-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.sleep-bars { display: flex; align-items: flex-end; gap: 3px; height: 60px; }
+.sleep-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
+.sleep-bar { width: 100%; border-radius: 3px 3px 0 0; background: var(--accent2); min-height: 3px; transition: height 0.3s; opacity: 0.7; }
+.sleep-bar.today { opacity: 1; }
+.sleep-bar-label { font-size: 8px; color: var(--text-muted); }
+.sleep-save-btn {
+  width: 100%; margin-top: 10px; padding: 8px; background: var(--accent); border: none;
+  border-radius: 8px; color: white; font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.sleep-save-btn:hover { opacity: 0.85; }
+
+/* GRATITUDE */
+.gratitude-input-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.gratitude-input-row input {
+  flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); font-family: inherit; font-size: 13px; color: var(--text);
+  outline: none; transition: border-color 0.2s;
+}
+.gratitude-input-row input:focus { border-color: var(--accent2); }
+.gratitude-input-row input::placeholder { color: var(--text-muted); }
+.btn-add-gratitude {
+  padding: 8px 14px; background: var(--accent); border: none; border-radius: 8px;
+  color: white; font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: opacity 0.2s;
+}
+.btn-add-gratitude:hover { opacity: 0.85; }
+.gratitude-list { display: flex; flex-direction: column; gap: 6px; }
+.gratitude-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  background: var(--bg); border-radius: 8px; border: 1px solid var(--border);
+}
+.gratitude-item-text { flex: 1; font-size: 13px; color: var(--text); line-height: 1.4; }
+.gratitude-item-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; opacity: 0.4; transition: opacity 0.2s; }
+.gratitude-item-del:hover { opacity: 1; color: #dc2626; }
+.gratitude-date-label { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+.gratitude-empty { font-size: 13px; color: var(--text-muted); text-align: center; padding: 16px 0; }
+
+/* FINANCE */
+.finance-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 16px; }
+.finance-sum-item { background: var(--bg); border-radius: 10px; padding: 14px; border: 1px solid var(--border); text-align: center; }
+.finance-sum-num { font-size: 20px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.finance-sum-num.income { color: #16a34a; }
+.finance-sum-num.expense { color: #dc2626; }
+.finance-sum-num.remain { color: var(--accent); }
+.finance-sum-label { font-size: 10px; color: var(--text-muted); }
+.finance-month-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.month-nav {
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 10px; color: var(--text-sub); cursor: pointer; font-family: inherit; font-size: 13px; transition: all 0.2s;
+}
+.month-nav:hover { background: var(--accent-dim); }
+.month-label { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; text-align: center; }
+.finance-entries { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; max-height: 200px; overflow-y: auto; }
+.finance-entry {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  background: var(--bg); border-radius: 8px; border: 1px solid var(--border);
+}
+.entry-cat { font-size: 10px; padding: 2px 8px; border-radius: 100px; font-weight: 600; white-space: nowrap; }
+.cat-income { background: rgba(22,163,74,0.1); color: #16a34a; }
+.cat-food { background: rgba(249,115,22,0.1); color: #f97316; }
+.cat-transport { background: rgba(59,130,246,0.1); color: #3b82f6; }
+.cat-bill { background: rgba(168,85,247,0.1); color: #a855f7; }
+.cat-health { background: rgba(236,72,153,0.1); color: #ec4899; }
+.cat-debt { background: rgba(220,38,38,0.1); color: #dc2626; }
+.cat-other { background: rgba(107,114,128,0.1); color: #6b7280; }
+.entry-desc { flex: 1; font-size: 13px; color: var(--text); }
+.entry-amount { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.entry-amount.pos { color: #16a34a; }
+.entry-amount.neg { color: #dc2626; }
+.entry-delete { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; opacity: 0.4; transition: opacity 0.2s; }
+.entry-delete:hover { opacity: 1; color: #dc2626; }
+.finance-add-form { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; }
+.finance-add-form select,
+.finance-add-form input {
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); font-family: inherit; font-size: 13px; color: var(--text);
+  outline: none; transition: border-color 0.2s;
+}
+.finance-add-form select:focus,
+.finance-add-form input:focus { border-color: var(--accent2); }
+.btn-add-entry {
+  padding: 8px 16px; background: var(--accent); border: none; border-radius: 8px;
+  color: white; font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: opacity 0.2s;
+}
+.btn-add-entry:hover { opacity: 0.85; }
+
+@media (max-width: 700px) {
+  .main { grid-template-columns: 1fr; padding: 16px 12px 60px; }
+  .card.full { grid-column: 1; }
+  .finance-add-form { grid-template-columns: 1fr 1fr; }
+  .finance-add-form .btn-add-entry { grid-column: 1 / -1; }
+  header { padding: 14px 16px; }
+  .mood-btn .label { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>Mia's Dashboard</h1>
+    <p>個人成長追蹤</p>
+  </div>
+  <div class="header-date" id="headerDate"></div>
+</header>
+
+<div class="main">
+
+  <!-- ① 目標進度 -->
+  <div class="card full">
+    <div class="card-header">
+      <div class="card-title"><span>🎯</span> 目標進度</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;">
+      <div class="goal-section">
+        <div class="goal-period">現在 → 三個月（2026 Q2）</div>
+        <div id="goals-3m"></div>
+      </div>
+      <div class="goal-section">
+        <div class="goal-period">半年 → 一年（2026底～2027初）</div>
+        <div id="goals-1y"></div>
+      </div>
+      <div class="goal-section">
+        <div class="goal-period">三到五年（2029～2031）</div>
+        <div id="goals-5y"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 習慣追蹤 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>✅</span> 習慣追蹤</div>
+    </div>
+    <div class="week-labels" id="weekLabels"></div>
+    <div id="habitList"></div>
+  </div>
+
+  <!-- ③ 情緒狀態 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>🌤</span> 今日狀態</div>
+      <span style="font-size:11px;color:var(--accent)" id="moodSavedLabel"></span>
+    </div>
+    <div class="mood-today">
+      <button class="mood-btn" data-v="1" onclick="setMood(1)">😞<span class="label">很差</span></button>
+      <button class="mood-btn" data-v="2" onclick="setMood(2)">😕<span class="label">不好</span></button>
+      <button class="mood-btn" data-v="3" onclick="setMood(3)">😐<span class="label">普通</span></button>
+      <button class="mood-btn" data-v="4" onclick="setMood(4)">🙂<span class="label">不錯</span></button>
+      <button class="mood-btn" data-v="5" onclick="setMood(5)">😄<span class="label">很好</span></button>
+    </div>
+    <div class="mood-tags">
+      <button class="mood-tag" onclick="toggleMoodTag(this)">平靜</button>
+      <button class="mood-tag" onclick="toggleMoodTag(this)">焦慮</button>
+      <button class="mood-tag" onclick="toggleMoodTag(this)">疲憊</button>
+      <button class="mood-tag" onclick="toggleMoodTag(this)">開心</button>
+      <button class="mood-tag" onclick="toggleMoodTag(this)">低落</button>
+      <button class="mood-tag" onclick="toggleMoodTag(this)">充實</button>
+      <button class="mood-tag" onclick="toggleMoodTag(this)">煩躁</button>
+      <button class="mood-tag" onclick="toggleMoodTag(this)">平穩</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">近 14 天情緒</div>
+    <div style="height:60px;"><div class="mood-bars" id="moodBars"></div></div>
+  </div>
+
+  <!-- ④ 學習進度 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>📚</span> 學習進度</div>
+    </div>
+    <div class="learn-grid">
+      <div class="learn-stat">
+        <input type="number" id="l-reading" min="0" value="0" onchange="saveLearn()" title="點擊編輯">
+        <div class="learn-stat-label">閱讀中書籍</div>
+      </div>
+      <div class="learn-stat">
+        <input type="number" id="l-done-books" min="0" value="0" onchange="saveLearn()" title="點擊編輯">
+        <div class="learn-stat-label">完成書籍</div>
+      </div>
+      <div class="learn-stat">
+        <input type="number" id="l-courses" min="0" value="0" onchange="saveLearn()" title="點擊編輯">
+        <div class="learn-stat-label">進行中課程</div>
+      </div>
+      <div class="learn-stat">
+        <input type="number" id="l-done-courses" min="0" value="0" onchange="saveLearn()" title="點擊編輯">
+        <div class="learn-stat-label">完成課程</div>
+      </div>
+    </div>
+    <div class="learn-links">
+      <a href="../Books/index.html" class="learn-link">📖 書庫</a>
+      <a href="../Courses/index.html" class="learn-link">🎓 課程庫</a>
+      <a href="../Drama/index.html" class="learn-link">🎬 看劇清單</a>
+    </div>
+  </div>
+
+  <!-- ⑤ 睡眠紀錄 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>🌙</span> 睡眠紀錄</div>
+      <span style="font-size:11px;color:var(--accent)" id="sleepSavedLabel"></span>
+    </div>
+    <div class="sleep-inputs">
+      <div class="sleep-field">
+        <label>入睡時間</label>
+        <input type="time" id="s-bed" onchange="calcSleep()">
+      </div>
+      <div class="sleep-field">
+        <label>起床時間</label>
+        <input type="time" id="s-wake" onchange="calcSleep()">
+      </div>
+      <div class="sleep-hours">
+        <div class="sleep-hours-num" id="s-total">—</div>
+        <div class="sleep-hours-label">小時</div>
+      </div>
+    </div>
+    <button class="sleep-save-btn" onclick="saveSleep()">記錄今日睡眠</button>
+    <div style="font-size:11px;color:var(--text-muted);margin:14px 0 6px;">近 7 天睡眠</div>
+    <div class="sleep-bars" id="sleepBars"></div>
+  </div>
+
+  <!-- ⑥ 感謝清單 -->
+  <div class="card full">
+    <div class="card-header">
+      <div class="card-title"><span>🌸</span> 感謝清單</div>
+      <span style="font-size:11px;color:var(--text-muted)" id="gratitudeDateLabel"></span>
+    </div>
+    <div class="gratitude-input-row">
+      <input type="text" id="gratitude-input" placeholder="今天有什麼讓你感謝的事？" onkeydown="if(event.key==='Enter')addGratitude()">
+      <button class="btn-add-gratitude" onclick="addGratitude()">＋ 新增</button>
+    </div>
+    <div class="gratitude-list" id="gratitudeList"></div>
+  </div>
+
+  <!-- ⑦ 財務 -->
+  <div class="card full">
+    <div class="card-header">
+      <div class="card-title"><span>💰</span> 財務記錄</div>
+    </div>
+    <div class="finance-month-selector">
+      <button class="month-nav" onclick="changeMonth(-1)">‹</button>
+      <div class="month-label" id="monthLabel"></div>
+      <button class="month-nav" onclick="changeMonth(1)">›</button>
+    </div>
+    <div class="finance-summary">
+      <div class="finance-sum-item">
+        <div class="finance-sum-num income" id="f-income">$0</div>
+        <div class="finance-sum-label">本月收入</div>
+      </div>
+      <div class="finance-sum-item">
+        <div class="finance-sum-num expense" id="f-expense">$0</div>
+        <div class="finance-sum-label">本月支出</div>
+      </div>
+      <div class="finance-sum-item">
+        <div class="finance-sum-num remain" id="f-remain">$0</div>
+        <div class="finance-sum-label">剩餘</div>
+      </div>
+    </div>
+    <div class="finance-entries" id="financeEntries"></div>
+    <div class="finance-add-form">
+      <select id="f-cat">
+        <option value="income">💰 收入</option>
+        <option value="food">🍱 飲食</option>
+        <option value="transport">🚌 交通</option>
+        <option value="bill">📋 帳單</option>
+        <option value="health">💊 醫療</option>
+        <option value="debt">🔴 還款</option>
+        <option value="other">・ 其他</option>
+      </select>
+      <input type="text" id="f-desc" placeholder="說明（例：五月薪資）">
+      <input type="number" id="f-amount" placeholder="金額" min="0" style="width:100px">
+      <button class="btn-add-entry" onclick="addEntry()">＋ 新增</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const today = new Date();
+const todayStr = today.toISOString().slice(0,10);
+const DAY_NAMES = ['日','一','二','三','四','五','六'];
+const MOOD_COLORS = { 1:'#ef4444', 2:'#f97316', 3:'#eab308', 4:'#84cc16', 5:'#22c55e' };
+
+document.getElementById('headerDate').textContent =
+  today.toLocaleDateString('zh-TW',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+
+// ===== GOALS =====
+const GOALS = {
+  '3m': [
+    {tag:'心理',text:'穩定看診吃藥，不讓自己掉更深'},
+    {tag:'工作',text:'標案繼續修正精進，主管那邊先接受'},
+    {tag:'感情',text:'建立更多安全感'},
+    {tag:'媽媽',text:'設界線，減少情緒消耗'},
+    {tag:'七貓',text:'小布丁先處理，其他保持健康'},
+    {tag:'經濟',text:'每月穩定領到 27,000'},
+    {tag:'健康',text:'飲控＋慢慢增加喝水，不強迫運動'},
+  ],
+  '1y': [
+    {tag:'心理',text:'心理狀態改善，不再動不動就不舒服'},
+    {tag:'工作',text:'至少得標兩件，獨當一面'},
+    {tag:'感情',text:'繼續穩定，若能更好更理想'},
+    {tag:'媽媽',text:'拿到外婆遺產，或回去上班'},
+    {tag:'七貓',text:'全員健康'},
+    {tag:'經濟',text:'每月穩定 30,000（來源不限）'},
+    {tag:'居住',text:'房東讓我們繼續住'},
+  ],
+  '5y': [
+    {tag:'心理',text:'生理心理都維持穩定'},
+    {tag:'工作',text:'有新發展，升職或重新創業'},
+    {tag:'感情',text:'繼續走下去，至少已登記'},
+    {tag:'媽媽',text:'已拿到遺產，穩定安心生活'},
+    {tag:'七貓',text:'平安健康快樂再陪五年'},
+    {tag:'經濟',text:'債務已協商或更生，解決大半'},
+    {tag:'居住',text:'住進電梯大樓，有乾淨的家'},
+  ]
+};
+
+const goalsDone = JSON.parse(localStorage.getItem('mia_dash_goals')||'{}');
+
+function renderGoals() {
+  ['3m','1y','5y'].forEach(key => {
+    document.getElementById(`goals-${key}`).innerHTML = GOALS[key].map((g,i) => {
+      const id=`${key}-${i}`, done=goalsDone[id];
+      return `<div class="goal-item ${done?'done':''}" onclick="toggleGoal('${id}',this)">
+        <div class="goal-check"></div>
+        <span class="goal-tag">${g.tag}</span>
+        <span class="goal-text">${g.text}</span>
+      </div>`;
+    }).join('');
+  });
+}
+
+function toggleGoal(id,el) {
+  goalsDone[id]=!goalsDone[id];
+  localStorage.setItem('mia_dash_goals',JSON.stringify(goalsDone));
+  el.classList.toggle('done',goalsDone[id]);
+}
+
+renderGoals();
+
+// ===== HABITS =====
+function getHabits() {
+  return JSON.parse(localStorage.getItem('mia_dash_habits')||JSON.stringify([
+    {name:'服藥',data:{}},{name:'喝水',data:{}},{name:'閱讀',data:{}},{name:'',data:{}},{name:'',data:{}}
+  ]));
+}
+function saveHabits(h){ localStorage.setItem('mia_dash_habits',JSON.stringify(h)); }
+
+function getLast7(){
+  return Array.from({length:7},(_,i)=>{
+    const d=new Date(today); d.setDate(d.getDate()-(6-i));
+    return d.toISOString().slice(0,10);
+  });
+}
+
+function calcStreak(data){
+  let s=0,d=new Date(today);
+  while(data[d.toISOString().slice(0,10)]){s++;d.setDate(d.getDate()-1);}
+  return s;
+}
+
+function renderHabits(){
+  const habits=getHabits(), days=getLast7();
+  document.getElementById('weekLabels').innerHTML=
+    days.map(d=>`<div class="week-label">${DAY_NAMES[new Date(d+'T00:00:00').getDay()]}</div>`).join('');
+  document.getElementById('habitList').innerHTML=habits.map((h,hi)=>`
+    <div class="habit-row">
+      <button class="habit-edit-btn" onclick="startEditHabit(${hi})">✎</button>
+      <span class="habit-name" id="hname-${hi}">${h.name||'<span style="color:var(--text-muted);font-size:12px">點 ✎ 設定</span>'}</span>
+      <input class="habit-edit-input" id="hinput-${hi}" value="${h.name}"
+        onblur="saveHabitName(${hi})" onkeydown="if(event.key==='Enter')saveHabitName(${hi})">
+      <div class="habit-dots">
+        ${days.map(d=>`<div class="habit-dot${d===todayStr?' today':''}${h.data[d]?' done':''}"
+          onclick="toggleHabit(${hi},'${d}',this)"></div>`).join('')}
+      </div>
+      <div class="habit-streak">${calcStreak(h.data)}🔥</div>
+    </div>
+  `).join('');
+}
+
+function toggleHabit(hi,date,el){
+  const h=getHabits(); h[hi].data[date]=!h[hi].data[date]; saveHabits(h);
+  el.classList.toggle('done',h[hi].data[date]);
+  el.closest('.habit-row').querySelector('.habit-streak').textContent=calcStreak(h[hi].data)+'🔥';
+}
+
+function startEditHabit(hi){
+  document.getElementById(`hname-${hi}`).classList.add('hidden');
+  const inp=document.getElementById(`hinput-${hi}`);
+  inp.classList.add('editing'); inp.focus(); inp.select();
+}
+
+function saveHabitName(hi){
+  const h=getHabits(); h[hi].name=document.getElementById(`hinput-${hi}`).value.trim();
+  saveHabits(h);
+  document.getElementById(`hinput-${hi}`).classList.remove('editing');
+  renderHabits();
+}
+
+renderHabits();
+
+// ===== MOOD =====
+function getMoodData(){ return JSON.parse(localStorage.getItem('mia_dash_mood')||'{}'); }
+
+function setMood(v){
+  const data=getMoodData(); const entry=data[todayStr]||{};
+  entry.score=v; data[todayStr]=entry;
+  localStorage.setItem('mia_dash_mood',JSON.stringify(data));
+  document.querySelectorAll('.mood-btn').forEach(b=>b.classList.toggle('active',+b.dataset.v===v));
+  document.getElementById('moodSavedLabel').textContent='已記錄 ✓';
+  renderMoodBars();
+}
+
+function toggleMoodTag(btn){
+  const data=getMoodData(); const entry=data[todayStr]||{};
+  const tags=entry.tags||[]; const tag=btn.textContent;
+  const idx=tags.indexOf(tag); idx>-1?tags.splice(idx,1):tags.push(tag);
+  entry.tags=tags; data[todayStr]=entry;
+  localStorage.setItem('mia_dash_mood',JSON.stringify(data));
+  btn.classList.toggle('active',idx===-1);
+}
+
+function renderMoodBars(){
+  const data=getMoodData();
+  const days=Array.from({length:14},(_,i)=>{
+    const d=new Date(today); d.setDate(d.getDate()-(13-i));
+    return d.toISOString().slice(0,10);
+  });
+  document.getElementById('moodBars').innerHTML=days.map(d=>{
+    const score=data[d]?.score||0;
+    const pct=score?(score/5*100):0;
+    const color=score?MOOD_COLORS[score]:'#e8ddd0';
+    return `<div class="mood-bar-wrap">
+      <div class="mood-bar" style="height:${pct}%;background:${color}"></div>
+      <div class="mood-bar-label">${DAY_NAMES[new Date(d+'T00:00:00').getDay()]}</div>
+    </div>`;
+  }).join('');
+  const te=data[todayStr];
+  if(te?.score) document.querySelectorAll('.mood-btn').forEach(b=>b.classList.toggle('active',+b.dataset.v===te.score));
+  if(te?.score) document.getElementById('moodSavedLabel').textContent='已記錄 ✓';
+  if(te?.tags) document.querySelectorAll('.mood-tag').forEach(t=>t.classList.toggle('active',te.tags.includes(t.textContent)));
+}
+
+renderMoodBars();
+
+// ===== LEARNING =====
+function loadLearn(){
+  const d=JSON.parse(localStorage.getItem('mia_dash_learn')||'{}');
+  ['reading','done-books','courses','done-courses'].forEach(k=>{
+    document.getElementById(`l-${k}`).value=d[k]||0;
+  });
+}
+
+function saveLearn(){
+  const d={};
+  ['reading','done-books','courses','done-courses'].forEach(k=>{ d[k]=+document.getElementById(`l-${k}`).value||0; });
+  localStorage.setItem('mia_dash_learn',JSON.stringify(d));
+}
+
+loadLearn();
+
+// ===== SLEEP =====
+function getSleepData(){ return JSON.parse(localStorage.getItem('mia_dash_sleep')||'{}'); }
+
+function calcSleep(){
+  const bed=document.getElementById('s-bed').value;
+  const wake=document.getElementById('s-wake').value;
+  if(!bed||!wake){ document.getElementById('s-total').textContent='—'; return; }
+  let [bh,bm]=bed.split(':').map(Number);
+  let [wh,wm]=wake.split(':').map(Number);
+  let mins=(wh*60+wm)-(bh*60+bm);
+  if(mins<0) mins+=24*60;
+  const h=(mins/60).toFixed(1);
+  document.getElementById('s-total').textContent=h;
+}
+
+function saveSleep(){
+  const bed=document.getElementById('s-bed').value;
+  const wake=document.getElementById('s-wake').value;
+  if(!bed||!wake) return;
+  let [bh,bm]=bed.split(':').map(Number);
+  let [wh,wm]=wake.split(':').map(Number);
+  let mins=(wh*60+wm)-(bh*60+bm);
+  if(mins<0) mins+=24*60;
+  const hours=+(mins/60).toFixed(1);
+  const data=getSleepData();
+  data[todayStr]={bed,wake,hours};
+  localStorage.setItem('mia_dash_sleep',JSON.stringify(data));
+  document.getElementById('sleepSavedLabel').textContent='已記錄 ✓';
+  renderSleepBars();
+}
+
+function renderSleepBars(){
+  const data=getSleepData();
+  const days=Array.from({length:7},(_,i)=>{
+    const d=new Date(today); d.setDate(d.getDate()-(6-i));
+    return d.toISOString().slice(0,10);
+  });
+  const maxH=10;
+  document.getElementById('sleepBars').innerHTML=days.map(d=>{
+    const entry=data[d];
+    const h=entry?.hours||0;
+    const pct=Math.min(h/maxH*100,100);
+    return `<div class="sleep-bar-wrap">
+      <div class="sleep-bar${d===todayStr?' today':''}" style="height:${pct||3}%;opacity:${h?1:0.2}" title="${h?h+'小時':'無紀錄'}"></div>
+      <div class="sleep-bar-label">${DAY_NAMES[new Date(d+'T00:00:00').getDay()]}</div>
+    </div>`;
+  }).join('');
+  // 載入今日
+  const todayEntry=data[todayStr];
+  if(todayEntry){
+    document.getElementById('s-bed').value=todayEntry.bed;
+    document.getElementById('s-wake').value=todayEntry.wake;
+    document.getElementById('s-total').textContent=todayEntry.hours;
+    document.getElementById('sleepSavedLabel').textContent='已記錄 ✓';
+  }
+}
+
+renderSleepBars();
+
+// ===== GRATITUDE =====
+function getGratitude(){ return JSON.parse(localStorage.getItem('mia_dash_gratitude')||'{}'); }
+
+function addGratitude(){
+  const inp=document.getElementById('gratitude-input');
+  const text=inp.value.trim();
+  if(!text) return;
+  const data=getGratitude();
+  if(!data[todayStr]) data[todayStr]=[];
+  data[todayStr].push({id:Date.now(),text});
+  localStorage.setItem('mia_dash_gratitude',JSON.stringify(data));
+  inp.value='';
+  renderGratitude();
+}
+
+function deleteGratitude(id){
+  const data=getGratitude();
+  data[todayStr]=(data[todayStr]||[]).filter(e=>e.id!==id);
+  localStorage.setItem('mia_dash_gratitude',JSON.stringify(data));
+  renderGratitude();
+}
+
+function renderGratitude(){
+  const data=getGratitude();
+  const items=data[todayStr]||[];
+  document.getElementById('gratitudeDateLabel').textContent=
+    today.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'});
+  document.getElementById('gratitudeList').innerHTML=items.length
+    ?items.map((e,i)=>`<div class="gratitude-item">
+        <span style="font-size:16px;flex-shrink:0">${['🌸','✨','💛','🌿','🙏'][i%5]}</span>
+        <span class="gratitude-item-text">${e.text}</span>
+        <button class="gratitude-item-del" onclick="deleteGratitude(${e.id})">✕</button>
+      </div>`).join('')
+    :'<div class="gratitude-empty">今天還沒有記錄，寫下一件讓你感謝的事吧 🌸</div>';
+}
+
+renderGratitude();
+
+// ===== FINANCE =====
+const CAT_LABEL={income:'收入',food:'飲食',transport:'交通',bill:'帳單',health:'醫療',debt:'還款',other:'其他'};
+const CAT_CLASS={income:'cat-income',food:'cat-food',transport:'cat-transport',bill:'cat-bill',health:'cat-health',debt:'cat-debt',other:'cat-other'};
+const CAT_ICON={income:'💰',food:'🍱',transport:'🚌',bill:'📋',health:'💊',debt:'🔴',other:'・'};
+let currentMonth=todayStr.slice(0,7);
+
+function getFinance(){ return JSON.parse(localStorage.getItem('mia_dash_finance')||'{}'); }
+function saveFinance(d){ localStorage.setItem('mia_dash_finance',JSON.stringify(d)); }
+
+function changeMonth(dir){
+  const [y,m]=currentMonth.split('-').map(Number);
+  const d=new Date(y,m-1+dir,1);
+  currentMonth=d.toISOString().slice(0,7);
+  renderFinance();
+}
+
+function addEntry(){
+  const cat=document.getElementById('f-cat').value;
+  const desc=document.getElementById('f-desc').value.trim();
+  const amount=+document.getElementById('f-amount').value;
+  if(!desc||!amount) return;
+  const fin=getFinance();
+  if(!fin[currentMonth]) fin[currentMonth]=[];
+  fin[currentMonth].push({id:Date.now(),cat,desc,amount});
+  saveFinance(fin);
+  document.getElementById('f-desc').value='';
+  document.getElementById('f-amount').value='';
+  renderFinance();
+}
+
+function deleteEntry(id){
+  const fin=getFinance();
+  fin[currentMonth]=(fin[currentMonth]||[]).filter(e=>e.id!==id);
+  saveFinance(fin); renderFinance();
+}
+
+function renderFinance(){
+  const [y,m]=currentMonth.split('-').map(Number);
+  document.getElementById('monthLabel').textContent=
+    new Date(y,m-1,1).toLocaleDateString('zh-TW',{year:'numeric',month:'long'});
+  const fin=getFinance(), entries=fin[currentMonth]||[];
+  let income=0,expense=0;
+  entries.forEach(e=>{ e.cat==='income'?income+=e.amount:expense+=e.amount; });
+  document.getElementById('f-income').textContent='$'+income.toLocaleString();
+  document.getElementById('f-expense').textContent='$'+expense.toLocaleString();
+  const remain=income-expense;
+  const remEl=document.getElementById('f-remain');
+  remEl.textContent=(remain>=0?'+$':'-$')+Math.abs(remain).toLocaleString();
+  remEl.style.color=remain>=0?'#16a34a':'#dc2626';
+  document.getElementById('financeEntries').innerHTML=entries.length
+    ?entries.map(e=>`<div class="finance-entry">
+        <span class="entry-cat ${CAT_CLASS[e.cat]}">${CAT_ICON[e.cat]} ${CAT_LABEL[e.cat]}</span>
+        <span class="entry-desc">${e.desc}</span>
+        <span class="entry-amount ${e.cat==='income'?'pos':'neg'}">${e.cat==='income'?'+':'-'}$${e.amount.toLocaleString()}</span>
+        <button class="entry-delete" onclick="deleteEntry(${e.id})">✕</button>
+      </div>`).join('')
+    :'<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px">本月尚無紀錄</div>';
+}
+
+renderFinance();
+</script>
+</body>
+</html>
