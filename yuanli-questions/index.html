@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>元利茶會問題清單</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap">
@@ -68,7 +69,12 @@ textarea {
 .add .row { display: flex; justify-content: flex-end; }
 ol.list { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--gold); }
 .q { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; padding: 14px 2px; border-bottom: 1px solid var(--line); }
+.q .lead { grid-row: 1 / span 3; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .q .chk { padding-top: 3px; }
+.q .handle { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; color: var(--muted); font-size: 1.1rem; line-height: 1; letter-spacing: -2px; padding: 6px 4px; border-radius: 6px; }
+.q .handle:hover { color: var(--accent); background: var(--surface); }
+.q.ghost { opacity: 0.35; }
+.q.drag { background: var(--surface); box-shadow: 0 6px 18px rgba(0,0,0,.18); }
 .q input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; margin: 0; }
 .q .txt { min-width: 0; overflow-wrap: anywhere; }
 .q .no { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
@@ -163,6 +169,30 @@ body { margin: 0; }
     try { localStorage.setItem(KEY, JSON.stringify(items)); }
     catch (e) { storageOk = false; say("這個瀏覽器無法儲存資料，關閉頁面後內容會消失。"); }
   }
+  var sortable = null;
+  function initSort() {
+    if (sortable) { sortable.destroy(); sortable = null; }
+    var ol = listEl.querySelector("ol.list");
+    if (!ol || !window.Sortable) return;
+    sortable = Sortable.create(ol, {
+      handle: ".handle", animation: 150, ghostClass: "ghost", dragClass: "drag", filter: ".editing",
+      onEnd: function () {
+        var ids = Array.prototype.map.call(ol.children, function (li) { return li.dataset.id; });
+        var byId = {}; items.forEach(function (q) { byId[q.id] = q; });
+        var next = ids.map(function (id) { return byId[id]; }).filter(Boolean);
+        if (next.length === items.length) { items = next; save(); }
+        render();
+      }
+    });
+  }
+  function move(id, dir) {
+    var i = items.map(function (q) { return q.id; }).indexOf(id), j = i + dir;
+    if (i < 0 || j < 0 || j >= items.length) return;
+    var t = items[i]; items[i] = items[j]; items[j] = t;
+    save(); render();
+    var li = listEl.querySelector('[data-id="' + id + '"] [data-act="' + (dir < 0 ? "up" : "down") + '"]');
+    if (li) li.focus();
+  }
   function findItem(id) { return items.filter(function (q) { return q.id === id; })[0]; }
   function patch(id, p) { var q = findItem(id); if (q) { Object.assign(q, p); save(); } }
 
@@ -179,10 +209,11 @@ body { margin: 0; }
       '<button type="button" class="primary small" data-act="saveans">儲存回覆</button></div></div>';
     var isConfirm = confirmId === q.id;
     return '<li class="q' + (q.done ? " done" : "") + '" data-id="' + esc(q.id) + '">' +
-      '<label class="chk"><input type="checkbox" data-act="toggle" aria-label="已問"' + (q.done ? " checked" : "") + "></label>" +
+      '<div class="lead"><label class="chk"><input type="checkbox" data-act="toggle" aria-label="已問"' + (q.done ? " checked" : "") + "></label>" +
+      '<span class="handle" title="拖曳排序" aria-hidden="true">⋮⋮</span></div>' +
       '<div class="txt"><span class="no">' + n + '.</span><span class="t">' + esc(q.text) + "</span></div>" +
       reply +
-      '<div class="acts"><button type="button" class="link" data-act="edit">編輯問題</button>' +
+      '<div class="acts"><button type="button" class="link" data-act="up" aria-label="上移">↑ 上移</button><button type="button" class="link" data-act="down" aria-label="下移">↓ 下移</button><button type="button" class="link" data-act="edit">編輯問題</button>' +
       (isConfirm
         ? '<button type="button" class="link confirm" data-act="del">確定刪除？</button><button type="button" class="link" data-act="nodel">取消</button>'
         : '<button type="button" class="link del" data-act="del">刪除</button>') + "</div></li>";
@@ -194,6 +225,7 @@ body { margin: 0; }
     $("progress").innerHTML = "<span>已問 <b>" + asked + "</b> / " + items.length + "</span><span>已有回覆 <b>" + answered + "</b> / " + items.length + "</span>";
     if (!items.length) { listEl.innerHTML = '<p class="state">還沒有問題。在上方輸入第一題。</p>'; return; }
     listEl.innerHTML = '<ol class="list">' + items.map(function (q, i) { return row(q, i + 1); }).join("") + "</ol>";
+    initSort();
   }
 
   listEl.addEventListener("input", function (e) {
@@ -219,6 +251,8 @@ body { margin: 0; }
       editingId = id; confirmId = null; editText = q.text || "";
       render();
       var t = $("edText"); if (t) t.focus();
+    } else if (act === "up" || act === "down") {
+      move(id, act === "up" ? -1 : 1);
     } else if (act === "cancel") {
       editingId = null; render();
     } else if (act === "save") {
